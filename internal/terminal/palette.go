@@ -1,0 +1,46 @@
+package terminal
+
+import "github.com/gdamore/tcell/v2"
+
+// theme holds the color definitions for the application's UI.
+type theme struct {
+	backgroundColor tcell.Color
+	textColor       tcell.Color
+	borderColor     tcell.Color
+	titleColor      tcell.Color
+	inputBgColor    tcell.Color
+	inputTextColor  tcell.Color
+	logInfoColor    tcell.Color
+	logWarnColor    tcell.Color
+	logErrorColor   tcell.Color
+	// Foreground for selected row in Lists whose selection BG is borderColor.
+	listSelectedFg tcell.Color
+}
+
+// defaultTheme is the standard green-on-black theme.
+var defaultTheme = &theme{
+	backgroundColor: tcell.ColorBlack,
+	textColor:       tcell.ColorGainsboro,
+	borderColor:     tcell.ColorDarkOliveGreen,
+	titleColor:      tcell.ColorLimeGreen,
+	inputBgColor:    tcell.NewRGBColor(0, 40, 0),
+	inputTextColor:  tcell.ColorLime,
+	logInfoColor:    tcell.ColorGrey,
+	logWarnColor:    tcell.ColorYellow,
+	logErrorColor:   tcell.ColorRed,
+	listSelectedFg:  tcell.ColorWhite,
+}
+
+// monochromeTheme is a simple black and white theme for high contrast.
+var monochromeTheme = &theme{
+	backgroundColor: tcell.ColorBlack,
+	textColor:       tcell.ColorWhite,
+	borderColor:     tcell.ColorWhite,
+	titleColor:      tcell.ColorWhite,
+	inputBgColor:    tcell.ColorWhite,
+	inputTextColor:  tcell.ColorBlack,
+	logInfoColor:    tcell.ColorWhite,
+	logWarnColor:    tcell.ColorWhite,
+	logErrorColor:   tcell.ColorWhite,
+	listSelectedFg:  tcell.ColorBlack,
+}
