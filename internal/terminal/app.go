@@ -710,7 +710,7 @@ func (t *console) handleNewMessage(event session.SurfaceUpdate) {
 	var display string
 	if event.IsOwnMessage {
 		display = fmt.Sprintf(
-			"%s%s%s[-]#%s> %s%s[-] %s%s[-]",
+			"%s%s%s#%s[-]> %s%s[-] %s%s[-]",
 			label,
 			ownNickTag, event.Nick,
 			event.ShortPubKey,
@@ -719,7 +719,7 @@ func (t *console) handleNewMessage(event session.SurfaceUpdate) {
 		)
 	} else if mentionMe {
 		display = fmt.Sprintf(
-			"%s%s%s[-]#%s> %s %s%s[-]",
+			"%s%s%s#%s[-]> %s %s%s[-]",
 			label,
 			nickColorTag, event.Nick,
 			event.ShortPubKey,
@@ -728,7 +728,7 @@ func (t *console) handleNewMessage(event session.SurfaceUpdate) {
 		)
 	} else {
 		display = fmt.Sprintf(
-			"%s%s%s[-]#%s> %s %s%s[-]",
+			"%s%s%s#%s[-]> %s %s%s[-]",
 			label,
 			nickColorTag, event.Nick,
 			event.ShortPubKey,
