@@ -126,14 +126,11 @@ func (t *console) messagesWrapColumns(screenW int) int {
 	return max(24, screenW-36)
 }
 
-func (t *console) rebuildMessagesOutputPreservingSelection() {
+// rebuildMessagesOutput rebuilds the Messages list from outputMessages (chronological order).
+// If preserveMsgIdx >= 0, selection moves to the first row of that message; if < 0, scrolls to the bottom.
+func (t *console) rebuildMessagesOutput(preserveMsgIdx int) {
 	if t.output == nil {
 		return
-	}
-	cur := t.output.GetCurrentItem()
-	msgIdx := -1
-	if cur >= 0 && cur < len(t.outputRowToMsg) {
-		msgIdx = t.outputRowToMsg[cur]
 	}
 	t.output.Clear()
 	t.outputRowToMsg = nil
@@ -167,13 +164,25 @@ func (t *console) rebuildMessagesOutputPreservingSelection() {
 	if t.output.GetItemCount() == 0 {
 		return
 	}
-	if msgIdx >= 0 {
+	if preserveMsgIdx >= 0 {
 		for i, mid := range t.outputRowToMsg {
-			if mid == msgIdx {
+			if mid == preserveMsgIdx {
 				t.output.SetCurrentItem(i)
 				return
 			}
 		}
 	}
 	t.output.SetCurrentItem(t.output.GetItemCount() - 1)
+}
+
+func (t *console) rebuildMessagesOutputPreservingSelection() {
+	if t.output == nil {
+		return
+	}
+	cur := t.output.GetCurrentItem()
+	msgIdx := -1
+	if cur >= 0 && cur < len(t.outputRowToMsg) {
+		msgIdx = t.outputRowToMsg[cur]
+	}
+	t.rebuildMessagesOutput(msgIdx)
 }
