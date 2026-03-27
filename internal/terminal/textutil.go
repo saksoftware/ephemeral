@@ -50,6 +50,15 @@ func extractNickPrefix(s string) (nick string, complete bool) {
 	return string(rs), false
 }
 
+// textAfterLastAt returns the substring after the last '@', or "" if there is no '@'.
+func textAfterLastAt(s string) string {
+	i := strings.LastIndex(s, "@")
+	if i < 0 {
+		return ""
+	}
+	return s[i+1:]
+}
+
 // pubkeyToNickColorTag returns a tview color tag [#rrggbb] unique per pubkey (stable HSV from hash).
 func pubkeyToNickColorTag(pubkey string) string {
 	if pubkey == "" {

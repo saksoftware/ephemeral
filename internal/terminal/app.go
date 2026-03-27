@@ -84,6 +84,9 @@ type console struct {
 	recentRecipients  []string
 	rrIdx             int
 	lastNickQuery     string
+	lastInputText     string
+	// suppressNickAutoApply blocks completion while the user removes @nick#… (avoids re-pasting full id).
+	suppressNickAutoApply bool
 
 	// Follow means: when enabled, always keep the message list scrolled to newest.
 	followEnabled bool
@@ -308,12 +311,30 @@ func (t *console) initViews() {
 		return graphemeLen(textToCheck) <= session.MaxMsgLen
 	})
 	t.input.SetChangedFunc(func(text string) {
+		prev := t.lastInputText
+		prevAfter := textAfterLastAt(prev)
+		curAfter := textAfterLastAt(text)
+
+		if len(text) > len(prev) || strings.Contains(curAfter, "#") {
+			t.suppressNickAutoApply = false
+		}
+		if !strings.Contains(text, "@") {
+			t.suppressNickAutoApply = false
+		}
+		if strings.Contains(prevAfter, "#") && !strings.Contains(curAfter, "#") {
+			t.suppressNickAutoApply = true
+		}
+		t.lastInputText = text
+
 		nick, complete := extractNickPrefix(text)
 		if complete {
 			t.lastNickQuery = ""
 			return
 		}
 		if !complete && strings.Contains(text, "#") && t.lastNickQuery == "" {
+			return
+		}
+		if t.suppressNickAutoApply && !strings.Contains(curAfter, "#") {
 			return
 		}
 		if nick != "" && nick != t.lastNickQuery {
@@ -1101,6 +1122,9 @@ func (t *console) handleNickCompletion(event session.SurfaceUpdate) {
 	}
 	t.completionEntries = entries
 	if len(entries) == 1 {
+		if t.suppressNickAutoApply {
+			return
+		}
 		text := t.input.GetText()
 		nick, complete := extractNickPrefix(text)
 		if !complete && nick != "" {
