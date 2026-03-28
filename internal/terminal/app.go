@@ -111,6 +111,9 @@ type outputMessage struct {
 	RawDisplay   string // full styled line(s) source for re-wrap on resize
 	MentionToMe  bool   // highlight full row(s) — @you in message
 	IsOwnMessage bool   // multiline wrap: continue input color on following rows
+	// CreatedAt + SortID define chronological order (matches engine flushOrdered).
+	CreatedAt int64
+	SortID    string
 }
 
 // pendingReply holds the message being replied to (input title + send formatting).
@@ -644,6 +647,16 @@ func (t *console) pruneStaleChatUsers(now time.Time) {
 	t.updateUserList()
 }
 
+func findOutputMessageInsertIndex(msgs []outputMessage, createdAt int64, sortID string) int {
+	for i := range msgs {
+		m := &msgs[i]
+		if createdAt < m.CreatedAt || (createdAt == m.CreatedAt && sortID < m.SortID) {
+			return i
+		}
+	}
+	return len(msgs)
+}
+
 // handleNewMessage processes and displays a new chat message.
 func (t *console) handleNewMessage(event session.SurfaceUpdate) {
 	if len(t.views) == 0 || t.activeViewIndex < 0 || t.activeViewIndex >= len(t.views) {
@@ -672,6 +685,11 @@ func (t *console) handleNewMessage(event session.SurfaceUpdate) {
 	}
 
 	t.maybeUpsertChatUserFromEvent(event)
+
+	selMsgIdx := -1
+	if cur := t.output.GetCurrentItem(); cur >= 0 && cur < len(t.outputRowToMsg) {
+		selMsgIdx = t.outputRowToMsg[cur]
+	}
 
 	// Smart follow: only select new message when user was already at bottom.
 	itemCountBefore := t.output.GetItemCount()
@@ -737,27 +755,14 @@ func (t *console) handleNewMessage(event session.SurfaceUpdate) {
 		)
 	}
 
-	wrapW := t.messagesCachedWrapW
-	if wrapW < 20 {
-		wrapW = 76
+	// Nostr created_at is Unix seconds; normalize to nanoseconds so INFO lines (UnixNano) compare correctly.
+	createdAtNs := event.CreatedAt * 1_000_000_000
+	insertAt := findOutputMessageInsertIndex(t.outputMessages, createdAtNs, event.ID)
+	if selMsgIdx >= 0 && insertAt <= selMsgIdx {
+		selMsgIdx++
 	}
-	lines := wrapTviewDisplay(display, wrapW)
-	// Full-row highlight on every wrapped line so @mentions are easy to spot.
-	if mentionMe {
-		const rowFg = "#fff8dc"
-		const rowBg = "#5c4318"
-		for i := range lines {
-			lines[i] = fmt.Sprintf("[%s:%s:-]%s[-]", rowFg, rowBg, lines[i])
-		}
-	} else if event.IsOwnMessage {
-		t.applyOwnMessageMultilineGreen(lines)
-	}
-	msgIdx := len(t.outputMessages)
-	for _, ln := range lines {
-		t.output.AddItem(ln, "", 0, nil)
-		t.outputRowToMsg = append(t.outputRowToMsg, msgIdx)
-	}
-	t.outputMessages = append(t.outputMessages, outputMessage{
+
+	om := outputMessage{
 		Replyable:    true,
 		Nick:         event.Nick,
 		ShortPubKey:  event.ShortPubKey,
@@ -765,11 +770,16 @@ func (t *console) handleNewMessage(event session.SurfaceUpdate) {
 		RawDisplay:   display,
 		MentionToMe:  mentionMe,
 		IsOwnMessage: event.IsOwnMessage,
-	})
-
-	if shouldFollow {
-		t.output.SetCurrentItem(t.output.GetItemCount() - 1)
+		CreatedAt:    createdAtNs,
+		SortID:       event.ID,
 	}
+	t.outputMessages = slices.Insert(t.outputMessages, insertAt, om)
+
+	preserveIdx := selMsgIdx
+	if shouldFollow {
+		preserveIdx = -1
+	}
+	t.rebuildMessagesOutput(preserveIdx)
 	if clearedPulling {
 		t.updateDetailsView()
 	}
@@ -822,23 +832,16 @@ func (t *console) handleInfoMessage(event session.SurfaceUpdate) {
 	}
 	content := strings.TrimSpace(event.Content)
 	disp := fmt.Sprintf("-- %s", content)
-	wrapW := t.messagesCachedWrapW
-	if wrapW < 20 {
-		wrapW = 76
-	}
-	msgIdx := len(t.outputMessages)
-	for _, ln := range wrapTviewDisplay(disp, wrapW) {
-		t.output.AddItem(ln, "", 0, nil)
-		t.outputRowToMsg = append(t.outputRowToMsg, msgIdx)
-	}
-	t.outputMessages = append(t.outputMessages, outputMessage{
+	now := time.Now().UnixNano()
+	insertAt := findOutputMessageInsertIndex(t.outputMessages, now, "")
+	t.outputMessages = slices.Insert(t.outputMessages, insertAt, outputMessage{
 		Replyable:  false,
 		Content:    content,
 		RawDisplay: disp,
+		CreatedAt:  now,
+		SortID:     "",
 	})
-	if n := t.output.GetItemCount(); n > 0 {
-		t.output.SetCurrentItem(n - 1)
-	}
+	t.rebuildMessagesOutput(-1)
 }
 
 // replyToSelectedMessage starts reply mode: title shows target; send prepends quote block.
